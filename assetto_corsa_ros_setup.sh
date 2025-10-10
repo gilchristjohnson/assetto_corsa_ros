@@ -11,11 +11,6 @@ declare -a COMPAT_TOOLS_DIRS=()
 declare -a STEAM_DIRS=()
 ## Defining text styles for readablity
 bold=$(tput bold); normal=$(tput sgr0)
-## Supported distros
-supported_apt=("debian" "ubuntu" "linuxmint" "pop")
-supported_dnf=("fedora" "nobara" "ultramarine")
-supported_arch=("arch" "endeavouros" "steamos" "cachyos")
-supported_opensuse=("opensuse-tumbleweed")
 ## Required native packages
 req_packages=("wget" "tar" "unzip" "glib2" "steam" "protontricks")
 
@@ -73,18 +68,31 @@ function get_release {
   echo "$(echo $os_release | sed "s/.* $1=//g" | sed "s/$1=\"//g" |  sed "s/ .*//g" | sed "s/\"//g")"
 }
 function CheckOS {
-  OS="$(get_release ID)"; OS_like="$(get_release ID_LIKE)"; OS_name="$(get_release NAME)"
-  if [[ ${supported_dnf[*]} =~ "$OS" ]] || [[ ${supported_dnf[*]} =~ "$OS_like" ]]; then 
-    pm_install="dnf install"; pm_list="dnf list --installed"
-  elif [[ ${supported_apt[*]} =~ "$OS" ]] || [[ ${supported_apt[*]} =~ "$OS_like" ]]; then 
-    pm_install="apt install"; pm_list="apt list --installed"
-  elif [[ ${supported_arch[*]} =~ "$OS" ]] || [[ ${supported_arch[*]} =~ "$OS_like" ]]; then 
-    pm_install="pacman -S"; pm_list="pacman -Q"
-  elif [[ ${supported_opensuse[*]} =~ "$OS" ]] || [[ ${supported_opensuse[*]} =~ "$OS_like" ]]; then 
-    pm_install="zypper install"; pm_list="zypper search --installed-only"
-  else
-    echo "$OS_name is not currently supported. Please open an issue to support it."
+  OS="$(get_release ID)"; VERSION="$(get_release VERSION_ID)"; OS_name="$(get_release PRETTY_NAME)"
+  if [[ "$OS" != "ubuntu" || "$VERSION" != "22.04" ]]; then
+    echo "Detected ${OS_name:-$OS $VERSION}. This script is only compatible with Ubuntu 22.04."
     exit 1
+  fi
+
+  pm_install="apt install"
+  pm_list="apt list --installed"
+}
+
+function CheckUnsupportedSteamInstallations {
+  if command -v flatpak > /dev/null 2>&1; then
+    if flatpak list --app --columns=application 2> /dev/null | grep -Fxq "com.valvesoftware.Steam"; then
+      echo "Flatpak installation of Steam detected. This script is not compatible with the Flatpak version of Steam."
+      echo "Please remove it by running: ${bold}flatpak uninstall --delete-data com.valvesoftware.Steam${normal}."
+      exit 1
+    fi
+  fi
+
+  if command -v snap > /dev/null 2>&1; then
+    if snap list steam > /dev/null 2>&1; then
+      echo "Snap installation of Steam detected. This script is not compatible with the Snap version of Steam."
+      echo "Please remove it by running: ${bold}sudo snap remove steam --purge${normal}."
+      exit 1
+    fi
   fi
 }
 
@@ -94,6 +102,7 @@ function CheckDependencies {
   for package in ${req_packages[@]}; do
     if [[ $package == "steam" ]]; then
       if [[ ${installed_packages[@]} != *"steam"* ]]; then
+        CheckUnsupportedSteamInstallations
         echo "Steam is not installed, run ${bold}sudo apt install steam${normal} to install the native package."
         exit 1
       fi
@@ -690,6 +699,7 @@ Then start the script again and skip the steps relating to deleting the Winepref
 
 # Checking stuff
 CheckOS
+CheckUnsupportedSteamInstallations
 CheckDependencies
 CheckSteamInstall
 CheckAssettoProcess
