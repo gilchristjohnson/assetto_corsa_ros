@@ -144,34 +144,46 @@ function CheckTempDir {
 }
 
 function FindAC {
-  # Find installation
-  if [ -f "$STEAM_LIBRARY_VDF" ]; then  
-    # Extract Steam library paths
-    PATH_LIST=$(grep 'path' "$STEAM_LIBRARY_VDF" | awk -F'"' '{print $4}')
+  local prompt_shown=0
+  while :; do
+    # Find installation
+    if [ -f "$STEAM_LIBRARY_VDF" ]; then
+      # Extract Steam library paths
+      PATH_LIST=$(grep 'path' "$STEAM_LIBRARY_VDF" | awk -F'"' '{print $4}')
 
-    while IFS= read -r LIBRARY_PATH; do
-      [[ -z "$LIBRARY_PATH" ]] && continue
-      if [[ -d "$LIBRARY_PATH/steamapps" ]]; then
-        steamapps_path="$LIBRARY_PATH/steamapps"
-      else
-        steamapps_path="$LIBRARY_PATH"
-      fi
-      AC_COMMON="${steamapps_path}/common/assettocorsa"
+      while IFS= read -r LIBRARY_PATH; do
+        [[ -z "$LIBRARY_PATH" ]] && continue
+        if [[ -d "$LIBRARY_PATH/steamapps" ]]; then
+          steamapps_path="$LIBRARY_PATH/steamapps"
+        else
+          steamapps_path="$LIBRARY_PATH"
+        fi
+        AC_COMMON="${steamapps_path}/common/assettocorsa"
 
-      if [ -d "$AC_COMMON" ]; then
-        echo "Found ${bold}$AC_COMMON${normal}."
-        Ask "Is that the right installation?" &&
-        set_paths_for assettocorsa "$AC_COMMON" &&
-        return
-      fi
-    done <<< "$PATH_LIST"
-  else
-    echo "No steam library file found at: $STEAM_LIBRARY_VDF"
-  fi
-  
-  echo "Could not find Assetto Corsa in the default path."
-  echo "Please install Assetto Corsa via Steam (steamapps/common/assettocorsa) and rerun this script."
-  exit 1
+        if [ -d "$AC_COMMON" ]; then
+          echo "Found ${bold}$AC_COMMON${normal}."
+          Ask "Is that the right installation?" &&
+          set_paths_for assettocorsa "$AC_COMMON" &&
+          return
+        fi
+      done <<< "$PATH_LIST"
+    else
+      echo "No steam library file found at: $STEAM_LIBRARY_VDF"
+    fi
+
+    if (( prompt_shown == 0 )); then
+      echo "Could not find Assetto Corsa in the default path."
+      echo "Please install Assetto Corsa via Steam so its files appear under steamapps/common/assettocorsa."
+      prompt_shown=1
+    fi
+
+    if Ask "Have you finished installing Assetto Corsa and want to check again?"; then
+      echo "Rechecking for Assetto Corsa installation..."
+      continue
+    fi
+
+    Error "Assetto Corsa installation not found"
+  done
 }
 
 function StartMenuShortcut {
@@ -687,14 +699,23 @@ function Ask {
 }
 
 function check_generated_files {
-  if [ ! -d "$AC_COMPATDATA/pfx/drive_c/Program Files (x86)/Steam/config" ]; then
-    echo "Before proceeding, please do the following to generate a Wineprefix:
+  local instructions_shown=0
+  while [ ! -d "$AC_COMPATDATA/pfx/drive_c/Program Files (x86)/Steam/config" ]; do
+    if (( instructions_shown == 0 )); then
+      echo "Before proceeding, please do the following to generate a Wineprefix:
  1. Launch Assetto Corsa with Proton-GE $GE_version
  2. Wait until Assetto Corsa launches (it takes a while)
- 3. Exit Assetto Corsa
-Then start the script again and skip the steps relating to deleting the Wineprefix and installing ProtonGE."
-    exit 1
-  fi
+ 3. Exit Assetto Corsa"
+      instructions_shown=1
+    fi
+
+    if Ask "Have you completed the steps above so I can verify the Wineprefix?"; then
+      echo "Checking for generated Wineprefix files..."
+      continue
+    fi
+
+    Error "Required Wineprefix files were not generated"
+  done
 }
 
 # Checking stuff
