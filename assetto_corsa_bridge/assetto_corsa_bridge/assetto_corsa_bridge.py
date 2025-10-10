@@ -170,8 +170,9 @@ def main(args: list[str] | None = None) -> None:
 
     rclpy.init(args=args)
 
-    restart_delay = 1.0
-    max_restart_delay = 30.0
+    initial_restart_delay = 0.1
+    restart_delay = initial_restart_delay
+    max_restart_delay = 5.0
 
     try:
         while rclpy.ok():
@@ -187,6 +188,8 @@ def main(args: list[str] | None = None) -> None:
                 time.sleep(restart_delay)
                 restart_delay = min(restart_delay * 2, max_restart_delay)
                 continue
+
+            restart_delay = initial_restart_delay
 
             should_restart = False
 
