@@ -718,6 +718,94 @@ function check_generated_files {
   done
 }
 
+# Menu helpers
+declare -i wineprefix_verified=0
+
+function ensure_wineprefix_verified {
+  if (( ! wineprefix_verified )); then
+    check_generated_files
+    wineprefix_verified=1
+  fi
+}
+
+function FullInstall {
+  StartMenuShortcut
+  CheckPrefix
+  CheckProtonGE
+  ensure_wineprefix_verified
+  CheckContentManager
+  CheckCSP
+  LinkPlugin
+  LinkVehicles
+  LinkBridgeConfig
+  echo "${bold}All done!${normal}"
+}
+
+function ShowMenu {
+  echo
+  echo "${bold}Assetto Corsa ROS Setup Menu${normal}"
+  echo " 1) Full Install"
+  echo " 2) Clean Content Manager Start Menu Shortcut"
+  echo " 3) Manage Assetto Corsa Wineprefix"
+  echo " 4) Install/Update ProtonGE $GE_version"
+  echo " 5) Install/Update Content Manager"
+  echo " 6) Install/Update Custom Shaders Patch"
+  echo " 7) Install/Update Assetto Corsa ROS Plugin"
+  echo " 8) Install/Update Assetto Corsa ROS Vehicles"
+  echo " 9) Install/Update Assetto Corsa ROS Bridge Controls"
+  echo " 0) Exit"
+}
+
+function MenuLoop {
+  local choice
+  while true; do
+    ShowMenu
+    if ! read -r -p "Select an option: " choice < /dev/tty; then
+      echo "${bold}ERROR${normal}: Unable to read user input." >&2
+      exit 1
+    fi
+    case $choice in
+      1)
+        FullInstall
+        ;;
+      2)
+        StartMenuShortcut
+        ;;
+      3)
+        CheckPrefix
+        ;;
+      4)
+        CheckProtonGE
+        ;;
+      5)
+        ensure_wineprefix_verified
+        CheckContentManager
+        ;;
+      6)
+        ensure_wineprefix_verified
+        CheckCSP
+        ;;
+      7)
+        LinkPlugin
+        ;;
+      8)
+        LinkVehicles
+        ;;
+      9)
+        ensure_wineprefix_verified
+        LinkBridgeConfig
+        ;;
+      0)
+        echo "Exiting."
+        break
+        ;;
+      *)
+        echo "Invalid option. Please select a valid menu item."
+        ;;
+    esac
+  done
+}
+
 # Checking stuff
 CheckOS
 CheckUnsupportedSteamInstallations
@@ -727,15 +815,4 @@ CheckAssettoProcess
 CheckTempDir
 # Running functions
 FindAC
-StartMenuShortcut
-CheckPrefix
-CheckProtonGE
-# Checking if assettocorsa's files were generated
-check_generated_files
-# Continuing to run functions
-CheckContentManager
-CheckCSP
-LinkPlugin
-LinkVehicles
-LinkBridgeConfig
-echo "${bold}All done!${normal}"
+MenuLoop
