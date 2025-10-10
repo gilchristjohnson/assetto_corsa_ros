@@ -284,6 +284,22 @@ function RemovePrefix {
   fi
 }
 
+function prompt_protonge_configuration {
+  echo "${bold}To enable ProtonGE for Assetto Corsa:${normal}"
+  echo " 1. Restart Steam"
+  echo " 2. Go to Assetto Corsa > Properties > Compatibility"
+  echo " 3. Turn on 'Force the use of a specific Steam Play compatibility tool'"
+  echo " 4. From the drop-down, select ProtonGE $GE_version"
+
+  while :; do
+    if Ask "Have you completed the steps above?"; then
+      break
+    fi
+
+    echo "Please finish configuring ProtonGE in Steam before continuing."
+  done
+}
+
 function CheckProtonGE {
   ProtonGE="ProtonGE $GE_version"
   echo "$ProtonGE is the latest tested version that works. Using any other version may not work."
@@ -296,6 +312,7 @@ function CheckProtonGE {
   fi
 
   local found_installation=1
+  local performed_installation=0
   for compat_dir in "${install_locations[@]}"; do
     if [[ -d "$compat_dir/GE-Proton$GE_version" ]]; then
       found_installation=0
@@ -304,9 +321,19 @@ function CheckProtonGE {
   done
 
   if (( ! found_installation )); then
-    Ask "Reinstall $ProtonGE?" && InstallProtonGE
+    if Ask "Reinstall $ProtonGE?"; then
+      InstallProtonGE
+      performed_installation=1
+    fi
   else
-    Ask "Install $ProtonGE?" && InstallProtonGE
+    if Ask "Install $ProtonGE?"; then
+      InstallProtonGE
+      performed_installation=1
+    fi
+  fi
+
+  if (( performed_installation )); then
+    prompt_protonge_configuration
   fi
 }
 
