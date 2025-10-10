@@ -38,11 +38,12 @@ The setup script is interactive so you can control what gets installed or replac
 If a prompt does not apply to your setup—such as reinstalling existing components—you can answer `n` to skip that action and keep your current files.
 
 ### Selecting the Proton-GE version in Steam
-After the script installs Proton-GE, configure Steam to use it for Assetto Corsa:
+After the script installs Proton-GE it now pauses so you can configure Steam before continuing. When prompted:
 1. Restart Steam.
 2. In the Steam Library, right-click **Assetto Corsa** and choose **Properties**.
 3. Open the **Compatibility** tab.
 4. Enable **Force the use of a specific Steam Play compatibility tool**.
 5. Choose **Proton-GE 9-20** from the drop-down list.
+6. Return to the setup script and confirm that you completed the steps.
 
 Once the setup script finishes and the Proton version is selected, build and source your ROS 2 workspace as usual.
