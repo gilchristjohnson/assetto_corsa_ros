@@ -144,46 +144,34 @@ function CheckTempDir {
 }
 
 function FindAC {
-  local prompt_shown=0
-  while :; do
-    # Find installation
-    if [ -f "$STEAM_LIBRARY_VDF" ]; then
-      # Extract Steam library paths
-      PATH_LIST=$(grep 'path' "$STEAM_LIBRARY_VDF" | awk -F'"' '{print $4}')
+  # Find installation
+  if [ -f "$STEAM_LIBRARY_VDF" ]; then  
+    # Extract Steam library paths
+    PATH_LIST=$(grep 'path' "$STEAM_LIBRARY_VDF" | awk -F'"' '{print $4}')
 
-      while IFS= read -r LIBRARY_PATH; do
-        [[ -z "$LIBRARY_PATH" ]] && continue
-        if [[ -d "$LIBRARY_PATH/steamapps" ]]; then
-          steamapps_path="$LIBRARY_PATH/steamapps"
-        else
-          steamapps_path="$LIBRARY_PATH"
-        fi
-        AC_COMMON="${steamapps_path}/common/assettocorsa"
+    while IFS= read -r LIBRARY_PATH; do
+      [[ -z "$LIBRARY_PATH" ]] && continue
+      if [[ -d "$LIBRARY_PATH/steamapps" ]]; then
+        steamapps_path="$LIBRARY_PATH/steamapps"
+      else
+        steamapps_path="$LIBRARY_PATH"
+      fi
+      AC_COMMON="${steamapps_path}/common/assettocorsa"
 
-        if [ -d "$AC_COMMON" ]; then
-          echo "Found ${bold}$AC_COMMON${normal}."
-          Ask "Is that the right installation?" &&
-          set_paths_for assettocorsa "$AC_COMMON" &&
-          return
-        fi
-      done <<< "$PATH_LIST"
-    else
-      echo "No steam library file found at: $STEAM_LIBRARY_VDF"
-    fi
-
-    if (( prompt_shown == 0 )); then
-      echo "Could not find Assetto Corsa in the default path."
-      echo "Please install Assetto Corsa via Steam so its files appear under steamapps/common/assettocorsa."
-      prompt_shown=1
-    fi
-
-    if Ask "Have you finished installing Assetto Corsa and want to check again?"; then
-      echo "Rechecking for Assetto Corsa installation..."
-      continue
-    fi
-
-    Error "Assetto Corsa installation not found"
-  done
+      if [ -d "$AC_COMMON" ]; then
+        echo "Found ${bold}$AC_COMMON${normal}."
+        Ask "Is that the right installation?" &&
+        set_paths_for assettocorsa "$AC_COMMON" &&
+        return
+      fi
+    done <<< "$PATH_LIST"
+  else
+    echo "No steam library file found at: $STEAM_LIBRARY_VDF"
+  fi
+  
+  echo "Could not find Assetto Corsa in the default path."
+  echo "Please install Assetto Corsa via Steam (steamapps/common/assettocorsa) and rerun this script."
+  exit 1
 }
 
 function StartMenuShortcut {
@@ -284,22 +272,6 @@ function RemovePrefix {
   fi
 }
 
-function prompt_protonge_configuration {
-  echo "${bold}To enable ProtonGE for Assetto Corsa:${normal}"
-  echo " 1. Restart Steam"
-  echo " 2. Go to Assetto Corsa > Properties > Compatibility"
-  echo " 3. Turn on 'Force the use of a specific Steam Play compatibility tool'"
-  echo " 4. From the drop-down, select ProtonGE $GE_version"
-
-  while :; do
-    if Ask "Have you completed the steps above?"; then
-      break
-    fi
-
-    echo "Please finish configuring ProtonGE in Steam before continuing."
-  done
-}
-
 function CheckProtonGE {
   ProtonGE="ProtonGE $GE_version"
   echo "$ProtonGE is the latest tested version that works. Using any other version may not work."
@@ -312,7 +284,6 @@ function CheckProtonGE {
   fi
 
   local found_installation=1
-  local performed_installation=0
   for compat_dir in "${install_locations[@]}"; do
     if [[ -d "$compat_dir/GE-Proton$GE_version" ]]; then
       found_installation=0
@@ -321,19 +292,9 @@ function CheckProtonGE {
   done
 
   if (( ! found_installation )); then
-    if Ask "Reinstall $ProtonGE?"; then
-      InstallProtonGE
-      performed_installation=1
-    fi
+    Ask "Reinstall $ProtonGE?" && InstallProtonGE
   else
-    if Ask "Install $ProtonGE?"; then
-      InstallProtonGE
-      performed_installation=1
-    fi
-  fi
-
-  if (( performed_installation )); then
-    prompt_protonge_configuration
+    Ask "Install $ProtonGE?" && InstallProtonGE
   fi
 }
 
@@ -726,111 +687,14 @@ function Ask {
 }
 
 function check_generated_files {
-  local instructions_shown=0
-  while [ ! -d "$AC_COMPATDATA/pfx/drive_c/Program Files (x86)/Steam/config" ]; do
-    if (( instructions_shown == 0 )); then
-      echo "Before proceeding, please do the following to generate a Wineprefix:
+  if [ ! -d "$AC_COMPATDATA/pfx/drive_c/Program Files (x86)/Steam/config" ]; then
+    echo "Before proceeding, please do the following to generate a Wineprefix:
  1. Launch Assetto Corsa with Proton-GE $GE_version
  2. Wait until Assetto Corsa launches (it takes a while)
- 3. Exit Assetto Corsa"
-      instructions_shown=1
-    fi
-
-    if Ask "Have you completed the steps above so I can verify the Wineprefix?"; then
-      echo "Checking for generated Wineprefix files..."
-      continue
-    fi
-
-    Error "Required Wineprefix files were not generated"
-  done
-}
-
-# Menu helpers
-declare -i wineprefix_verified=0
-
-function ensure_wineprefix_verified {
-  if (( ! wineprefix_verified )); then
-    check_generated_files
-    wineprefix_verified=1
+ 3. Exit Assetto Corsa
+Then start the script again and skip the steps relating to deleting the Wineprefix and installing ProtonGE."
+    exit 1
   fi
-}
-
-function FullInstall {
-  StartMenuShortcut
-  CheckPrefix
-  CheckProtonGE
-  ensure_wineprefix_verified
-  CheckContentManager
-  CheckCSP
-  LinkPlugin
-  LinkVehicles
-  LinkBridgeConfig
-  echo "${bold}All done!${normal}"
-}
-
-function ShowMenu {
-  echo
-  echo "${bold}Assetto Corsa ROS Setup Menu${normal}"
-  echo " 1) Full Install"
-  echo " 2) Clean Content Manager Start Menu Shortcut"
-  echo " 3) Manage Assetto Corsa Wineprefix"
-  echo " 4) Install/Update ProtonGE $GE_version"
-  echo " 5) Install/Update Content Manager"
-  echo " 6) Install/Update Custom Shaders Patch"
-  echo " 7) Install/Update Assetto Corsa ROS Plugin"
-  echo " 8) Install/Update Assetto Corsa ROS Vehicles"
-  echo " 9) Install/Update Assetto Corsa ROS Bridge Controls"
-  echo " 0) Exit"
-}
-
-function MenuLoop {
-  local choice
-  while true; do
-    ShowMenu
-    if ! read -r -p "Select an option: " choice < /dev/tty; then
-      echo "${bold}ERROR${normal}: Unable to read user input." >&2
-      exit 1
-    fi
-    case $choice in
-      1)
-        FullInstall
-        ;;
-      2)
-        StartMenuShortcut
-        ;;
-      3)
-        CheckPrefix
-        ;;
-      4)
-        CheckProtonGE
-        ;;
-      5)
-        ensure_wineprefix_verified
-        CheckContentManager
-        ;;
-      6)
-        ensure_wineprefix_verified
-        CheckCSP
-        ;;
-      7)
-        LinkPlugin
-        ;;
-      8)
-        LinkVehicles
-        ;;
-      9)
-        ensure_wineprefix_verified
-        LinkBridgeConfig
-        ;;
-      0)
-        echo "Exiting."
-        break
-        ;;
-      *)
-        echo "Invalid option. Please select a valid menu item."
-        ;;
-    esac
-  done
 }
 
 # Checking stuff
@@ -842,4 +706,15 @@ CheckAssettoProcess
 CheckTempDir
 # Running functions
 FindAC
-MenuLoop
+StartMenuShortcut
+CheckPrefix
+CheckProtonGE
+# Checking if assettocorsa's files were generated
+check_generated_files
+# Continuing to run functions
+CheckContentManager
+CheckCSP
+LinkPlugin
+LinkVehicles
+LinkBridgeConfig
+echo "${bold}All done!${normal}"

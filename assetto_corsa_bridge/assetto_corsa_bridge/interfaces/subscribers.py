@@ -7,7 +7,7 @@ from autonoma_msgs.msg import VehicleInputs
 
 from assetto_corsa_bridge.utilities import VirtualRacingController
 
-MAX_STEERING_DEG: float = 260.1
+MAX_STEERING_DEG: float = 260
 MAX_THROTTLE: float = 100.0
 MAX_BRAKE: float = 6000.0
 
@@ -32,9 +32,11 @@ class Subscribers:
     def _vehicle_inputs_callback(self, msg: VehicleInputs) -> None:
         """Map incoming ROS commands onto the virtual racing controller."""
 
+        avg_brake_cmd = np.mean([msg.brake_f_cmd, msg.brake_r_cmd])
+
         steer_norm = float(np.clip(msg.steering_cmd / -MAX_STEERING_DEG, -1.0, 1.0))
         throttle_norm = float(np.clip(msg.throttle_cmd / MAX_THROTTLE, 0.0, 1.0))
-        brake_norm = float(np.clip(msg.brake_cmd / MAX_BRAKE, 0.0, 1.0))
+        brake_norm = float(np.clip(avg_brake_cmd / MAX_BRAKE, 0.0, 1.0))
 
         axes = (
             ("STEERING", steer_norm, self._virtual_wheel.steer_max),
