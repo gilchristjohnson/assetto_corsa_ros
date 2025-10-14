@@ -67,16 +67,18 @@ function get_release {
   os_release="$(cat /etc/os-release)"
   echo "$(echo $os_release | sed "s/.* $1=//g" | sed "s/$1=\"//g" |  sed "s/ .*//g" | sed "s/\"//g")"
 }
+
 function CheckOS {
   OS="$(get_release ID)"; VERSION="$(get_release VERSION_ID)"; OS_name="$(get_release PRETTY_NAME)"
-  if [[ "$OS" != "ubuntu" || "$VERSION" != "22.04" ]]; then
-    echo "Detected ${OS_name:-$OS $VERSION}. This script is only compatible with Ubuntu 22.04."
+  if [[ "$VERSION" != 22.04* || ( "$OS" != "ubuntu" && "$OS" != "pop" ) ]]; then
+    echo "Detected ${OS_name:-$OS $VERSION}. This script is only tested with Ubuntu or Pop!_OS 22.04."
     exit 1
   fi
 
   pm_install="apt install"
   pm_list="apt list --installed"
 }
+
 
 function CheckUnsupportedSteamInstallations {
   if command -v flatpak > /dev/null 2>&1; then

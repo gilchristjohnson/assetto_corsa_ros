@@ -7,7 +7,7 @@ from autonoma_msgs.msg import VehicleInputs
 
 from assetto_corsa_bridge.utilities import VirtualRacingController
 
-MAX_STEERING_DEG: float = 260
+MAX_STEERING_DEG: float = 260.1
 MAX_THROTTLE: float = 100.0
 MAX_BRAKE: float = 6000.0
 

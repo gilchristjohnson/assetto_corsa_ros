@@ -131,6 +131,16 @@ def main() -> None:
         prompt="Press Enter here when you’ve finished tweaking settings..."
     )
 
+    _gate("Navigate to **DRIVE**, then click on the **...** near **Tyre blankets**")
+    _gate(
+        " • Uncheck **Automatic Shifting**\n"
+        " • Check **Automatic Clutch**\n"
+        " • Set Traction Control to **Off**\n"
+        " • Set ABS to **Off**\n"
+        "When finished, **save your preset** in Content Manager.",
+        prompt="Press Enter here when you’ve finished tweaking settings..."
+    )
+
     try:
         pass
     except KeyboardInterrupt:
