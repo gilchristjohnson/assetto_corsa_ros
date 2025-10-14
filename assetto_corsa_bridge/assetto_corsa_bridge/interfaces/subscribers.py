@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
+from time import monotonic
+
 from autonoma_msgs.msg import VehicleInputs
 
 from assetto_corsa_bridge.utilities import VirtualRacingController
@@ -10,6 +12,9 @@ from assetto_corsa_bridge.utilities import VirtualRacingController
 MAX_STEERING_DEG: float = 260.1
 MAX_THROTTLE: float = 100.0
 MAX_BRAKE: float = 6000.0
+
+GEAR_SHIFT_COOLDOWN_S: float = 0.25
+GEAR_NEUTRAL_GRACE_S: float = 1.0
 
 
 class Subscribers:
@@ -28,6 +33,10 @@ class Subscribers:
         # reverse without waiting for a new gear command.
         self._assetto_current_gear: int = 0
         self._reverse_recovery_active: bool = False
+        self._desired_gear: int = 0
+        self._last_non_neutral_gear: int = 0
+        self._next_shift_allowed: float = 0.0
+        self._neutral_grace_deadline: float = 0.0
 
     def _vehicle_inputs_callback(self, msg: VehicleInputs) -> None:
         """Map incoming ROS commands onto the virtual racing controller."""
@@ -46,28 +55,36 @@ class Subscribers:
         for axis, value, scale in axes:
             self._virtual_wheel.set_axis(axis, int(value * scale))
 
-        commanded_gear = int(msg.gear_cmd)
-        current_gear = int(getattr(self, "_assetto_current_gear", self._last_gear))
-        needs_reverse_recovery = current_gear < 0 and commanded_gear >= 0
+        desired_gear = int(msg.gear_cmd)
+        now = monotonic()
 
-        if not needs_reverse_recovery and commanded_gear == self._last_gear:
+        if desired_gear != self._desired_gear:
+            self._desired_gear = desired_gear
+            self._neutral_grace_deadline = now + GEAR_NEUTRAL_GRACE_S
+            self._next_shift_allowed = 0.0
+
+        reported_gear = int(getattr(self, "_assetto_current_gear", self._last_gear))
+
+        if reported_gear != 0:
+            self._last_non_neutral_gear = reported_gear
+        elif desired_gear != 0 and self._last_non_neutral_gear != 0 and now <= self._neutral_grace_deadline:
+            reported_gear = self._last_non_neutral_gear
+
+        if desired_gear == reported_gear:
+            self._last_gear = reported_gear
+            self._next_shift_allowed = 0.0
             return
 
-        if needs_reverse_recovery:
+        if reported_gear < 0 and desired_gear >= 0:
             if self._reverse_recovery_active:
                 return
             self._reverse_recovery_active = True
 
-        gear_difference = commanded_gear - current_gear
-
-        if gear_difference == 0:
-            self._last_gear = commanded_gear
+        if now < self._next_shift_allowed:
             return
 
-        shift_up = gear_difference > 0
-        step_count = min(abs(gear_difference), 10)
+        shift_up = desired_gear > reported_gear
+        self._virtual_wheel.tap_shift(up=shift_up, ms=50)
 
-        for _ in range(step_count):
-            self._virtual_wheel.tap_shift(up=shift_up, ms=50)
-
-        self._last_gear = commanded_gear
+        self._next_shift_allowed = now + GEAR_SHIFT_COOLDOWN_S
+        self._neutral_grace_deadline = now + GEAR_NEUTRAL_GRACE_S
