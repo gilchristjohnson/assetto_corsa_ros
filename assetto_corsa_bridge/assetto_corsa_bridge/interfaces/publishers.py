@@ -115,7 +115,7 @@ class Publishers:
         if assetto_gear >= 0:
             self._reverse_recovery_active = False
 
-        powertrain.current_gear = int(getattr(self, "_last_gear", assetto_gear))
+        powertrain.current_gear = assetto_gear
 
         self.powertrain_pub.publish(powertrain)
 
