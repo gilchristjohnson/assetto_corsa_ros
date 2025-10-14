@@ -6,7 +6,7 @@ import json
 import logging
 import socket
 import time
-from typing import Iterator
+from typing import Iterator, Mapping
 
 import rclpy
 from rclpy.context import Context
@@ -43,6 +43,8 @@ class AssettoCorsaBridge(Node, Publishers, Subscribers, Services):
 
         self._decoder = TelemetryDecoder(self.get_logger())
         self._sock: socket.socket | None = None
+        self._pending_spawn_mode: str | None = None
+        self._spawn_command_sent = False
 
         self._ensure_socket()
         self.create_timer(1.0 / poll_hz, self._poll_assetto)
@@ -70,6 +72,8 @@ class AssettoCorsaBridge(Node, Publishers, Subscribers, Services):
             handled = False
 
             for packet in self._decoder.decode(datagram):
+                payload = packet.asdict()
+                self._process_spawn_ack(payload)
                 self._publish_assetto_packet(stamp, packet)
                 handled = True
 
@@ -94,9 +98,47 @@ class AssettoCorsaBridge(Node, Publishers, Subscribers, Services):
             return
 
         response: dict[str, object] = {"bridge": "ack", "handled": handled}
+        if self._pending_spawn_mode is not None and not self._spawn_command_sent:
+            response["set_spawn"] = self._pending_spawn_mode
+            self._spawn_command_sent = True
 
         payload = json.dumps(response).encode("utf-8")
         sock.sendto(payload, addr)
+
+    def _process_spawn_ack(self, payload: Mapping[str, object]) -> None:
+        """Log spawn updates reported by the Assetto Corsa plugin."""
+
+        if not isinstance(payload, Mapping):
+            return
+
+        ack = payload.get("set_spawn_ack")
+        if not isinstance(ack, Mapping):
+            return
+
+        mode = str(ack.get("mode") or "")
+        success = bool(ack.get("success"))
+        message = str(ack.get("message") or "")
+
+        if mode and mode == self._pending_spawn_mode:
+            self._pending_spawn_mode = None
+            self._spawn_command_sent = False
+
+        outcome = "succeeded" if success else "failed"
+        log_message = f"Spawn {mode or 'update'} {outcome}"
+        if message:
+            log_message += f": {message}"
+
+        if success:
+            self.get_logger().info(log_message)
+        else:
+            self.get_logger().warn(log_message)
+
+    def _request_set_spawn(self, mode: str) -> None:
+        """Send the requested spawn update to the in-game plugin."""
+
+        self._pending_spawn_mode = mode
+        self._spawn_command_sent = False
+        self.get_logger().info(f"Requested spawn {mode}")
 
     def _ensure_socket(self) -> bool:
         """Make sure the UDP socket exists, logging failures once."""
