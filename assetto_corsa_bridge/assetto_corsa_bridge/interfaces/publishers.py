@@ -10,7 +10,6 @@ from rosgraph_msgs.msg import Clock
 from tf2_ros import TransformBroadcaster
 
 import numpy as np
-from time import monotonic
 
 from assetto_corsa_bridge.utilities.frames import FrameTransformer
 from assetto_corsa_bridge.utilities.telemetry import TelemetryPacket
@@ -116,15 +115,7 @@ class Publishers:
         if assetto_gear >= 0:
             self._reverse_recovery_active = False
 
-        current_gear = assetto_gear
-        if current_gear == 0:
-            last_non_neutral = int(getattr(self, "_last_non_neutral_gear", 0))
-            neutral_grace_deadline = float(getattr(self, "_neutral_grace_deadline", 0.0))
-            if last_non_neutral != 0 and monotonic() <= neutral_grace_deadline:
-                current_gear = last_non_neutral
-
-        self._last_gear = current_gear
-        powertrain.current_gear = current_gear
+        powertrain.current_gear = int(getattr(self, "_last_gear", assetto_gear))
 
         self.powertrain_pub.publish(powertrain)
 
