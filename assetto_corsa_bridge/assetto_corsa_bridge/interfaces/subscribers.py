@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import Optional
-
 from autonoma_msgs.msg import VehicleInputs
 
 from assetto_corsa_bridge.utilities import VirtualRacingController
@@ -27,12 +25,9 @@ class Subscribers:
         # ``0`` so the first command for gear ``1`` triggers an upshift.
         self._last_gear: int = 0
         # Cache the last reported Assetto Corsa gear so that we can recover from
-        # reverse without waiting for a new gear command.  ``None`` means we
-        # have not yet received any telemetry.
-        self._assetto_current_gear: Optional[int] = None
-        # Remember the highest forward gear requested while we exit reverse so
-        # that we honour it after neutral is cleared.
-        self._pending_forward_gear: Optional[int] = None
+        # reverse without waiting for a new gear command.
+        self._assetto_current_gear: int = 0
+        self._reverse_recovery_active: bool = False
 
     def _vehicle_inputs_callback(self, msg: VehicleInputs) -> None:
         """Map incoming ROS commands onto the virtual racing controller."""
@@ -52,43 +47,27 @@ class Subscribers:
             self._virtual_wheel.set_axis(axis, int(value * scale))
 
         commanded_gear = int(msg.gear_cmd)
+        current_gear = int(getattr(self, "_assetto_current_gear", self._last_gear))
+        needs_reverse_recovery = current_gear < 0 and commanded_gear >= 0
 
-        current_gear = int(
-            self._assetto_current_gear
-            if self._assetto_current_gear is not None
-            else self._last_gear
-        )
-
-        if commanded_gear <= 0:
-            self._pending_forward_gear = None
-        elif current_gear < 0:
-            pending_target = self._pending_forward_gear or commanded_gear
-            self._pending_forward_gear = max(pending_target, commanded_gear)
-        elif (
-            self._pending_forward_gear is not None
-            and current_gear >= self._pending_forward_gear
-        ):
-            self._pending_forward_gear = None
-
-        target_gear = (
-            max(commanded_gear, self._pending_forward_gear)
-            if self._pending_forward_gear is not None
-            else commanded_gear
-        )
-
-        if target_gear == current_gear:
-            self._last_gear = target_gear
-            if target_gear >= 0:
-                self._pending_forward_gear = None
+        if not needs_reverse_recovery and commanded_gear == self._last_gear:
             return
 
-        shift_up = target_gear > current_gear
-        step_count = abs(target_gear - current_gear)
+        if needs_reverse_recovery:
+            if self._reverse_recovery_active:
+                return
+            self._reverse_recovery_active = True
+
+        gear_difference = commanded_gear - current_gear
+
+        if gear_difference == 0:
+            self._last_gear = commanded_gear
+            return
+
+        shift_up = gear_difference > 0
+        step_count = min(abs(gear_difference), 10)
 
         for _ in range(step_count):
             self._virtual_wheel.tap_shift(up=shift_up, ms=50)
-            current_gear += 1 if shift_up else -1
 
-        self._last_gear = target_gear
-        if current_gear >= 0:
-            self._pending_forward_gear = None
+        self._last_gear = commanded_gear

@@ -112,8 +112,8 @@ class Publishers:
 
         assetto_gear = int(packet.scalar("gear"))
         self._assetto_current_gear = assetto_gear
-        if assetto_gear >= 0 and hasattr(self, "_pending_forward_gear"):
-            self._pending_forward_gear = None
+        if assetto_gear >= 0:
+            self._reverse_recovery_active = False
 
         powertrain.current_gear = int(getattr(self, "_last_gear", assetto_gear))
 
