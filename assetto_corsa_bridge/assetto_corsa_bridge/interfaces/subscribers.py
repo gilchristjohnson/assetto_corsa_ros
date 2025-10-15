@@ -61,6 +61,18 @@ class Subscribers:
             return
 
         self._virtual_wheel.press_button(self._gear_buttons[commanded_gear - 1])
+        if commanded_gear < 1 or commanded_gear > len(self._gear_buttons):
+            for button in self._gear_buttons:
+                self._virtual_wheel.release_button(button)
+            self._assetto_current_gear = 0
+            return
+
+        for index, button in enumerate(self._gear_buttons, start=1):
+            if index == commanded_gear:
+                self._virtual_wheel.press_button(button)
+            else:
+                self._virtual_wheel.release_button(button)
+
         self._assetto_current_gear = commanded_gear
 
 
