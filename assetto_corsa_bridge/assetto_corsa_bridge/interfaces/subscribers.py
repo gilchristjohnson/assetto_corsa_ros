@@ -45,10 +45,13 @@ class Subscribers:
 
         commanded_gear = int(msg.gear_cmd)
         current_gear = self._assetto_current_gear
-        print("Enter Loop")
+        if commanded_gear == current_gear:
+            return
+
+        step = 1 if commanded_gear > current_gear else -1
         while commanded_gear != current_gear:
-            up = commanded_gear > current_gear
-            self._virtual_wheel.tap_shift(up=up, ms=50)
-            current_gear = self._assetto_current_gear
-        print("Exit Loop")
+            self._virtual_wheel.tap_shift(up=step > 0, ms=50)
+            current_gear += step
+
+        self._assetto_current_gear = current_gear
 
