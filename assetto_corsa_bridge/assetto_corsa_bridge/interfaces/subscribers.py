@@ -52,7 +52,7 @@ class Subscribers:
             step = 1 if commanded_gear > current_gear else -1
             
             while commanded_gear != current_gear:
-                self._virtual_wheel.tap_shift(up=step > 0, ms=50)
+                self._virtual_wheel.tap_shift(up=step > 0, ms=20)
                 current_gear += step
 
             self._assetto_current_gear = current_gear
