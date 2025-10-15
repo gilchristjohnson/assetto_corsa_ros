@@ -27,6 +27,7 @@ class Publishers:
         self.powertrain_pub = self.create_publisher(PowertrainData, "/powertrain_data", 10)
         self.tf_broadcaster = TransformBroadcaster(self)
         self._frame = FrameTransformer()
+        self._latest_packet: TelemetryPacket | None = None
 
     def _publish_clock(self):
         """Publish the current ROS clock reading."""
@@ -76,8 +77,12 @@ class Publishers:
 
         self.odom_pub.publish(odom)
 
-    def _publish_vehicle_data(self, stamp: Time, packet: TelemetryPacket):
+    def _publish_vehicle_data(self, stamp: Time) -> None:
         """Publish wheel speeds, steering angle, loads, temperatures, and brake pressure."""
+
+        packet = self._latest_packet
+        if packet is None:
+            return
 
         vehicle = VehicleData()
         vehicle.header.stamp = stamp
@@ -101,8 +106,12 @@ class Publishers:
 
         self.vehicle_data_pub.publish(vehicle)
 
-    def _publish_powertrain_data(self, stamp: Time, packet: TelemetryPacket):
+    def _publish_powertrain_data(self, stamp: Time) -> None:
         """Publish engine speed, throttle position, and vehicle speed."""
+
+        packet = self._latest_packet
+        if packet is None:
+            return
 
         powertrain = PowertrainData()
         powertrain.header.stamp = stamp
@@ -119,6 +128,8 @@ class Publishers:
     def _publish_assetto_packet(self, stamp: Time, packet: TelemetryPacket):
         """Publish the complete set of ROS messages derived from a telemetry packet."""
 
+        self._latest_packet = packet
+
         orientation = self._frame.orientation_from_contact_points(packet.contact_points())
         position_map = self._frame.world_to_map(
             packet.float_sequence("world_position", length=3)
@@ -130,7 +141,7 @@ class Publishers:
             packet.float_sequence("local_angular_velocity", length=3)
         )
 
-        self._publish_vehicle_data(stamp, packet)
-        self._publish_powertrain_data(stamp, packet)
+        self._publish_vehicle_data(stamp)
+        self._publish_powertrain_data(stamp)
         self._publish_transform(stamp, position_map, orientation)
         self._publish_odometry(stamp, position_map, orientation, linear_velocity, angular_velocity)
