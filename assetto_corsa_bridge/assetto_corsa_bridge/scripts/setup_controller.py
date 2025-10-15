@@ -94,14 +94,34 @@ def main() -> None:
     _gate("Switch to the **BUTTONS** tab.", prompt="Press Enter here when the **BUTTONS** tab is open...")
     button_steps = [
         _Step(
-            description="In CM, click **Click to assign** for **Next gear**.",
-            engage=lambda: controller.press_button("SHIFT_UP"),
-            release=lambda: controller.release_button("SHIFT_UP"),
+            description="In CM, click **Click to assign** for **Gear 1**.",
+            engage=lambda: controller.press_button("GEAR_1"),
+            release=lambda: controller.release_button("GEAR_1"),
         ),
         _Step(
-            description="In CM, click **Click to assign** for **Previous gear**.",
-            engage=lambda: controller.press_button("SHIFT_DOWN"),
-            release=lambda: controller.release_button("SHIFT_DOWN"),
+            description="In CM, click **Click to assign** for **Gear 2**.",
+            engage=lambda: controller.press_button("GEAR_2"),
+            release=lambda: controller.release_button("GEAR_2"),
+        ),
+        _Step(
+            description="In CM, click **Click to assign** for **Gear 3**.",
+            engage=lambda: controller.press_button("GEAR_3"),
+            release=lambda: controller.release_button("GEAR_3"),
+        ),
+        _Step(
+            description="In CM, click **Click to assign** for **Gear 4**.",
+            engage=lambda: controller.press_button("GEAR_4"),
+            release=lambda: controller.release_button("GEAR_4"),
+        ),
+        _Step(
+            description="In CM, click **Click to assign** for **Gear 5**.",
+            engage=lambda: controller.press_button("GEAR_5"),
+            release=lambda: controller.release_button("GEAR_5"),
+        ),
+        _Step(
+            description="In CM, click **Click to assign** for **Gear 6**.",
+            engage=lambda: controller.press_button("GEAR_6"),
+            release=lambda: controller.release_button("GEAR_6"),
         ),
     ]
     _run_steps(button_steps, DELAY)
@@ -149,7 +169,7 @@ def main() -> None:
         controller.set_axis("STEERING", steering_neutral)
         controller.set_axis("THROTTLE", pedal_neutral)
         controller.set_axis("BRAKE", pedal_neutral)
-        for btn in ("SHIFT_UP", "SHIFT_DOWN", "PAUSE", "RESET"):
+        for btn in ("GEAR_1", "GEAR_2", "GEAR_3", "GEAR_4", "GEAR_5", "GEAR_6", "PAUSE", "RESET"):
             controller.release_button(btn)
         print("\n" + _line() + "\nAll inputs released. You can close this window.\n" + _line())
 

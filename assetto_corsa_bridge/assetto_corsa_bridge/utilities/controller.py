@@ -17,8 +17,12 @@ class VirtualRacingController:
             "BRAKE": (ecodes.ABS_BRAKE, 0, 1023, 0, 0, 0),
         }
         self._buttons = {
-            "SHIFT_UP": ecodes.BTN_GEAR_UP,
-            "SHIFT_DOWN": ecodes.BTN_GEAR_DOWN,
+            "GEAR_1": ecodes.BTN_TRIGGER,
+            "GEAR_2": ecodes.BTN_THUMB,
+            "GEAR_3": ecodes.BTN_THUMB2,
+            "GEAR_4": ecodes.BTN_TOP,
+            "GEAR_5": ecodes.BTN_TOP2,
+            "GEAR_6": ecodes.BTN_PINKIE,
             "PAUSE": ecodes.BTN_START,
             "RESET": ecodes.BTN_SELECT,
         }
@@ -53,15 +57,6 @@ class VirtualRacingController:
         self.press_button(button)
         time.sleep(ms / 1000.0)
         self.release_button(button)
-
-    def press_shift(self, up: bool = True) -> None:
-        self.press_button("SHIFT_UP" if up else "SHIFT_DOWN")
-
-    def release_shift(self, up: bool = True) -> None:
-        self.release_button("SHIFT_UP" if up else "SHIFT_DOWN")
-
-    def tap_shift(self, up: bool = True, ms: int = 40) -> None:
-        self.tap_button("SHIFT_UP" if up else "SHIFT_DOWN", ms)
 
     def tap_pause(self, ms: int = 40) -> None:
         self.tap_button("PAUSE", ms)
