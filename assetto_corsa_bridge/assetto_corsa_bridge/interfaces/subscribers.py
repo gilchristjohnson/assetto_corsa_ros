@@ -25,6 +25,8 @@ class Subscribers:
             name="Assetto Corsa Bridge Virtual Wheel"
         )
         self._assetto_current_gear: int = 0
+        self._assetto_desired_gear: int = 0
+        self._gear_shift_timer = self.create_timer(0.05, self._process_gear_shifts)
 
     def _vehicle_inputs_callback(self, msg: VehicleInputs) -> None:
         """Map incoming ROS commands onto the virtual racing controller."""
