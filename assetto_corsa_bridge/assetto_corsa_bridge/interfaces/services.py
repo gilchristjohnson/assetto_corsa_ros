@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from std_srvs.srv import SetBool, Trigger
+from std_srvs.srv import Trigger
 
 
 class Services:
@@ -12,9 +12,12 @@ class Services:
         """Initialise ROS service endpoints for pausing and resetting the sim."""
 
         service_prefix = f"/{self.get_name()}"
-        self.create_service(Trigger, f"{service_prefix}/pause", self._handle_pause_service)
-        self.create_service(Trigger, f"{service_prefix}/reset", self._handle_reset_service)
-        self.create_service(SetBool, f"{service_prefix}/set_spawn", self._handle_set_spawn_service)
+        self.create_service(
+            Trigger, f"{service_prefix}/pause", self._handle_pause_service
+        )
+        self.create_service(
+            Trigger, f"{service_prefix}/reset", self._handle_reset_service
+        )
 
     def _handle_pause_service(self, request: Trigger.Request, response: Trigger.Response) -> Trigger.Response:
         """Handle requests to pause the simulation via the virtual controller."""
@@ -44,18 +47,3 @@ class Services:
         response.message = "Reset button pressed."
         return response
 
-    def _handle_set_spawn_service(self, request: SetBool.Request, response: SetBool.Response) -> SetBool.Response:
-        """Queue a spawn update or reset command for the in-game plugin."""
-
-        request_spawn = getattr(self, "_request_set_spawn", None)
-        if request_spawn is None:
-            response.success = False
-            response.message = "Spawn command handler unavailable."
-            return response
-
-        mode = "reset" if request.data else "set"
-        request_spawn(mode)
-        response.success = True
-        action = "Reset" if request.data else "Set"
-        response.message = f"{action} spawn requested."
-        return response
