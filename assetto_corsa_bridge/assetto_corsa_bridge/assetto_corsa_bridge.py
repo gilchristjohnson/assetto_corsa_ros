@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import socket
 import time
+from typing import Iterator
 
 import rclpy
 from rclpy.context import Context
 from rclpy.node import Node
 
 from .interfaces import Publishers, Services, Subscribers
-from .utilities.socket import AssettoSocket
 from .utilities.telemetry import TelemetryDecoder
+
+_Address = tuple[str, int]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,15 +42,30 @@ class AssettoCorsaBridge(Node, Publishers, Subscribers, Services):
         self.create_timer(self.dt, self._publish_clock)
 
         self._decoder = TelemetryDecoder(self.get_logger())
-        self._socket = AssettoSocket(
-            self._assetto_host, self._assetto_port, self.get_logger()
-        )
+        self._sock: socket.socket | None = None
+
+        self._ensure_socket()
         self.create_timer(1.0 / poll_hz, self._poll_assetto)
+
+    def _create_assetto_socket(self) -> socket.socket:
+        """Create and bind the UDP socket used to receive telemetry."""
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((self._assetto_host, self._assetto_port))
+        sock.setblocking(False)
+        self.get_logger().info(
+            f"Assetto UDP listening on {self._assetto_host}:{self._assetto_port}"
+        )
+        return sock
 
     def _poll_assetto(self) -> None:
         """Drain the UDP socket and publish ROS messages for each telemetry packet."""
 
-        for datagram, addr in self._socket.datagrams():
+        if not self._ensure_socket() or self._sock is None:
+            return
+
+        for datagram, addr in self._read_socket_payloads(self._sock):
             stamp = self.get_clock().now().to_msg()
             handled = False
 
@@ -54,12 +73,53 @@ class AssettoCorsaBridge(Node, Publishers, Subscribers, Services):
                 self._publish_assetto_packet(stamp, packet)
                 handled = True
 
-            self._socket.send_ack(addr, handled)
+            self._send_ack(addr, handled)
+
+    def _read_socket_payloads(self, sock: socket.socket) -> Iterator[tuple[bytes, _Address]]:
+        """Yield raw UDP datagrams until the socket has no more payloads."""
+
+        while True:
+            try:
+                yield sock.recvfrom(65536)
+            except BlockingIOError:
+                return
+            except InterruptedError:
+                continue
+
+    def _send_ack(self, addr: _Address, handled: bool) -> None:
+        """Respond to the sender confirming whether the payload produced output."""
+
+        sock = self._sock
+        if sock is None:
+            return
+
+        response: dict[str, object] = {"bridge": "ack", "handled": handled}
+
+        payload = json.dumps(response).encode("utf-8")
+        sock.sendto(payload, addr)
+
+    def _ensure_socket(self) -> bool:
+        """Make sure the UDP socket exists, logging failures once."""
+
+        if self._sock is not None:
+            return True
+
+        self._sock = self._create_assetto_socket()
+        return True
+
+    def _close_socket(self) -> None:
+        """Close the existing socket and clear internal state."""
+
+        sock, self._sock = self._sock, None
+        if sock is None:
+            return
+
+        sock.close()
 
     def destroy_node(self) -> None:
         """Ensure sockets are closed before the node is destroyed."""
 
-        self._socket.close()
+        self._close_socket()
         super().destroy_node()
 
 
