@@ -25,37 +25,48 @@ class Subscribers:
             name="Assetto Corsa Bridge Virtual Wheel"
         )
         self._assetto_current_gear: int = 0
+        self._gear_buttons = tuple(f"GEAR_{idx}" for idx in range(1, 7))
 
     def _vehicle_inputs_callback(self, msg: VehicleInputs) -> None:
-            """Map incoming ROS commands onto the virtual racing controller."""
+        """Map incoming ROS commands onto the virtual racing controller."""
 
-            avg_brake_cmd = np.mean([msg.brake_f_cmd, msg.brake_r_cmd])
+        avg_brake_cmd = np.mean([msg.brake_f_cmd, msg.brake_r_cmd])
 
-            steer_norm = float(np.clip(msg.steering_cmd / -MAX_STEERING_DEG, -1.0, 1.0))
-            throttle_norm = float(np.clip(msg.throttle_cmd / MAX_THROTTLE, 0.0, 1.0))
-            brake_norm = float(np.clip(avg_brake_cmd / MAX_BRAKE, 0.0, 1.0))
+        steer_norm = float(np.clip(msg.steering_cmd / -MAX_STEERING_DEG, -1.0, 1.0))
+        throttle_norm = float(np.clip(msg.throttle_cmd / MAX_THROTTLE, 0.0, 1.0))
+        brake_norm = float(np.clip(avg_brake_cmd / MAX_BRAKE, 0.0, 1.0))
 
-            axes = (
-                ("STEERING", steer_norm, self._virtual_wheel.steer_max),
-                ("THROTTLE", throttle_norm, self._virtual_wheel.pedal_max),
-                ("BRAKE", brake_norm, self._virtual_wheel.pedal_max),
-            )
-            for axis, value, scale in axes:
-                self._virtual_wheel.set_axis(axis, int(value * scale))
+        axes = (
+            ("STEERING", steer_norm, self._virtual_wheel.steer_max),
+            ("THROTTLE", throttle_norm, self._virtual_wheel.pedal_max),
+            ("BRAKE", brake_norm, self._virtual_wheel.pedal_max),
+        )
+        for axis, value, scale in axes:
+            self._virtual_wheel.set_axis(axis, int(value * scale))
 
-            commanded_gear = int(msg.gear_cmd)
-            current_gear = self._assetto_current_gear
+        commanded_gear = int(msg.gear_cmd)
+        self._set_gear_button(commanded_gear)
 
-            if commanded_gear == current_gear:
-                return
+    def _set_gear_button(self, commanded_gear: int) -> None:
+        """Hold the button that corresponds to the requested gear."""
 
-            step = 1 if commanded_gear > current_gear else -1
-            
-            while commanded_gear != current_gear:
-                self._virtual_wheel.tap_shift(up=step > 0, ms=50)
-                current_gear += step
+        if commanded_gear == self._assetto_current_gear:
+            return
 
-            self._assetto_current_gear = current_gear
+        if commanded_gear < 1 or commanded_gear > len(self._gear_buttons):
+            for button in self._gear_buttons:
+                self._virtual_wheel.release_button(button)
+            self._assetto_current_gear = 0
+            return
+
+        for index, button in enumerate(self._gear_buttons, start=1):
+            if index == commanded_gear:
+                self._virtual_wheel.press_button(button)
+            else:
+                self._virtual_wheel.release_button(button)
+
+        self._assetto_current_gear = commanded_gear
+
 
 
 
