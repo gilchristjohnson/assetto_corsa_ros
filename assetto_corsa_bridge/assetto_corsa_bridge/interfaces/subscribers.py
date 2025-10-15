@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from autonoma_msgs.msg import VehicleInputs
+import time
 
 from assetto_corsa_bridge.utilities import VirtualRacingController
 
@@ -24,7 +25,8 @@ class Subscribers:
         self._virtual_wheel = VirtualRacingController(
             name="Assetto Corsa Bridge Virtual Wheel"
         )
-        self._assetto_current_gear: int = 0
+        self._assetto_gear : int = 0
+        self._reported_gear : int = 0
         self._gear_buttons = tuple(f"GEAR_{idx}" for idx in range(1, 7))
 
     def _vehicle_inputs_callback(self, msg: VehicleInputs) -> None:
@@ -50,30 +52,15 @@ class Subscribers:
     def _set_gear_button(self, commanded_gear: int) -> None:
         """Hold the button that corresponds to the requested gear."""
 
-        if commanded_gear == self._assetto_current_gear:
+        if commanded_gear == self._assetto_gear :
             return
 
         for button in self._gear_buttons:
             self._virtual_wheel.release_button(button)
-
-        if commanded_gear < 1 or commanded_gear > len(self._gear_buttons):
-            self._assetto_current_gear = 0
-            return
-
+            
         self._virtual_wheel.press_button(self._gear_buttons[commanded_gear - 1])
-        if commanded_gear < 1 or commanded_gear > len(self._gear_buttons):
-            for button in self._gear_buttons:
-                self._virtual_wheel.release_button(button)
-            self._assetto_current_gear = 0
-            return
-
-        for index, button in enumerate(self._gear_buttons, start=1):
-            if index == commanded_gear:
-                self._virtual_wheel.press_button(button)
-            else:
-                self._virtual_wheel.release_button(button)
-
-        self._assetto_current_gear = commanded_gear
+        time.sleep(0.05)
+        self._reported_gear = commanded_gear
 
 
 
