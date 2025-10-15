@@ -46,16 +46,14 @@ class Subscribers:
             self._virtual_wheel.set_axis(axis, int(value * scale))
 
         commanded_gear = int(msg.gear_cmd)
-        self._assetto_desired_gear = commanded_gear
-
-    def _process_gear_shifts(self) -> None:
-        """Advance the gearbox toward the desired gear without blocking callbacks."""
-
-        desired = self._assetto_desired_gear
-        current = self._assetto_current_gear
-
-        if desired == current:
+        current_gear = self._assetto_current_gear
+        if commanded_gear == current_gear:
             return
 
-        self._virtual_wheel.tap_shift(up=desired > current, ms=50)
+        step = 1 if commanded_gear > current_gear else -1
+        while commanded_gear != current_gear:
+            self._virtual_wheel.tap_shift(up=step > 0, ms=50)
+            current_gear += step
+
+        self._assetto_current_gear = current_gear
 
