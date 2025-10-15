@@ -44,9 +44,11 @@ class Subscribers:
             self._virtual_wheel.set_axis(axis, int(value * scale))
 
         commanded_gear = int(msg.gear_cmd)
-        current_gear = int(getattr(self, "_assetto_current_gear", commanded_gear))
+        current_gear = self._assetto_current_gear
+        print("Enter Loop")
+        while commanded_gear != current_gear:
+            up = commanded_gear > current_gear
+            self._virtual_wheel.tap_shift(up=up, ms=50)
+            current_gear = self._assetto_current_gear
+        print("Exit Loop")
 
-        if commanded_gear == current_gear:
-            return
-
-        self._virtual_wheel.tap_shift(up=commanded_gear > current_gear, ms=50)

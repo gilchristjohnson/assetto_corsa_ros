@@ -110,7 +110,7 @@ class Publishers:
         powertrain.throttle_position = packet.scalar("gas")
         powertrain.vehicle_speed_kmph = packet.scalar("speed_ms") * 3.6
 
-        assetto_gear = int(packet.scalar("gear"))
+        assetto_gear = int(packet.scalar("gear")) - 1
         self._assetto_current_gear = assetto_gear
         powertrain.current_gear = assetto_gear
 
